@@ -1,0 +1,59 @@
+# DiscountAura — Premium Dark SaaS Frontend
+
+A high-end, dark-mode landing page for India's smart coupon platform with AI-powered savings optimization. Inspiration: Stripe + Linear + Vercel + Apple polish, Ramp dashboards, Framer-grade motion, OpenAI-style AI panel, Swiggy-flavored coupon cards.
+
+## Design System
+- **Theme:** Deep black (`#0A0A0B`) with charcoal glass surfaces, dark mode only
+- **Accents:** Yellow `#FACC15` (brand / CTA), Emerald `#10B981` (savings, verified)
+- **Glass UI:** `backdrop-blur-xl`, `bg-white/[0.04]`, `border-white/10`, layered inner glow
+- **Radii:** 2xl on cards/buttons; soft multi-layer shadows + colored glows
+- **Typography:** Inter, tight tracking on headlines, gradient text on hero
+- **Motion:** Tailwind keyframes (`fade-in`, `scale-in`, `slide-down`, `glow-pulse`, `blob-float`, `shimmer`) + IntersectionObserver scroll reveals
+
+## Global Effects
+- Floating animated gradient blobs (yellow / green / violet) blurred behind content
+- Cursor glow — radial gradient div tracking pointer (Linear/Vercel-style)
+- Subtle parallax on hero blobs via scroll Y
+- Hover scale 1.05 / active 0.95 micro-interactions everywhere
+- Smooth scroll site-wide
+
+## Page Sections (single-page `/`)
+
+1. **Sticky Glass Navbar** — DiscountAura sparkle logo, centered search, notification bell with red badge + slide-down dropdown of live alerts, Login ghost button, yellow "Subscribe ₹200/month" CTA. Collapses to hamburger on mobile.
+
+2. **Hero** — "Stack smarter. Save bigger." headline with animated yellow→green gradient glow. Subtext on AI stacking. CTAs: "Start Saving" (yellow), "Explore Free Deals" (glass outline). Trust strip: 10k+ savers • ₹2.4Cr saved • Verified daily.
+
+3. **AI Savings Optimizer** (hero feature) — Large glass card. Cart value input + "Find Best Deal" button. Animated result reveal: big green "Best Savings: ₹XXX", breakdown rows (coupon / bank offer / wallet cashback) with icons, AI insight callout with sparkle. Realistic mock calculation.
+
+4. **Categories Grid** — 5 glass cards (Groceries, Food Delivery, Electronics, Fashion, Travel) with Lucide icons, hover lift + glow border, live coupon counts.
+
+5. **Trending Coupons** — Responsive grid: bold dashed code, description, green Verified badge, "Last checked Xh ago", copy-to-clipboard with toast, hover glow border.
+
+6. **Premium Lock** — Row of blurred locked coupon cards with lock overlay, "Unlock Premium Deals 🔒", big "Subscribe ₹200/month → Start Saving" CTA.
+
+7. **Dashboard Preview** — Glass card mock: Total Saved (green, large), Subscription ₹200/mo, Net Gain (yellow). Recent savings list with store initials + amounts (Ramp-style).
+
+8. **How It Works** — 4 numbered steps (Pick store → Apply coupon → Stack cashback → Save more) with icons; horizontal flow desktop, stacked mobile, dashed connectors.
+
+9. **Footer** — Disclaimer ("DiscountAura is an independent coupon aggregator."), FAQ / Privacy / Contact links, social icons, gradient top border.
+
+## Component Structure
+```text
+src/components/
+  layout/      Navbar.tsx, Footer.tsx
+  effects/     CursorGlow.tsx, BackgroundBlobs.tsx, FadeInOnScroll.tsx
+  sections/    Hero.tsx, AIOptimizer.tsx, Categories.tsx,
+               TrendingCoupons.tsx, PremiumLock.tsx,
+               DashboardPreview.tsx, HowItWorks.tsx
+  ui/          NotificationsDropdown.tsx, CouponCard.tsx, GlassCard.tsx
+src/pages/Index.tsx   // composes all sections
+```
+
+## Tailwind / Token Updates
+- Add HSL tokens: `aura-yellow`, `aura-green`, `aura-bg`, `glass-border`
+- Extend keyframes: `fade-in`, `scale-in`, `slide-down`, `glow-pulse`, `blob-float`, `shimmer`
+- Utility classes: `.glass-card`, `.glow-border`, `.hover-scale`
+
+## Out of Scope (this iteration)
+- Real auth, real coupon API, payments — all data mocked client-side
+- Multi-page routing — single landing page only

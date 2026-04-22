@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "DiscountAura"
+version = "1.0.0"
+id = "artifacts/discount-aura"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25003
+
+[services.development]
+run = "pnpm --filter @workspace/discount-aura run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/discount-aura", "run", "build" ]
+publicDir = "artifacts/discount-aura/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25003"
+BASE_PATH = "/"
