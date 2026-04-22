@@ -1,0 +1,150 @@
+name: Deploy to Replit
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy DiscountAura
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build DiscountAura
+        run: pnpm --filter @workspace/discount-aura run build
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Create Replit release from current commit
+        id: create_release
+        env:
+          REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
+          REPLIT_DEPLOYMENT_ID: ${{ secrets.REPLIT_DEPLOYMENT_ID }}
+        run: |
+          echo "Creating a new Replit release for commit ${{ github.sha }}..."
+          body=$(curl --silent --show-error --fail \
+            --request POST \
+            --url "https://api.replit.com/v1/deployments/${REPLIT_DEPLOYMENT_ID}/releases" \
+            --header "Authorization: Bearer ${REPLIT_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "{\"commitHash\": \"${{ github.sha }}\"}")
+
+          echo "Response: $body"
+
+          release_id=$(echo "$body" | jq -r '.id')
+          if [ -z "$release_id" ] || [ "$release_id" = "null" ]; then
+            echo "Could not parse release ID from response."
+            exit 1
+          fi
+
+          echo "Created release: $release_id"
+          echo "release_id=$release_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for release to finish building
+        env:
+          REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
+          REPLIT_DEPLOYMENT_ID: ${{ secrets.REPLIT_DEPLOYMENT_ID }}
+          RELEASE_ID: ${{ steps.create_release.outputs.release_id }}
+        run: |
+          echo "Polling until release ${RELEASE_ID} is ready..."
+          max_attempts=30
+          attempt=0
+
+          while [ $attempt -lt $max_attempts ]; do
+            attempt=$((attempt + 1))
+            echo "Attempt $attempt/$max_attempts..."
+
+            status_response=$(curl --silent --show-error --fail \
+              --request GET \
+              --url "https://api.replit.com/v1/deployments/${REPLIT_DEPLOYMENT_ID}/releases/${RELEASE_ID}" \
+              --header "Authorization: Bearer ${REPLIT_TOKEN}")
+
+            state=$(echo "$status_response" | jq -r '.state // empty' | tr '[:upper:]' '[:lower:]')
+            echo "Release state: $state"
+
+            if [ "$state" = "ready" ] || [ "$state" = "succeeded" ]; then
+              echo "Release is ready."
+              break
+            elif [ "$state" = "failed" ] || [ "$state" = "error" ]; then
+              echo "Release build failed."
+              exit 1
+            fi
+
+            if [ $attempt -eq $max_attempts ]; then
+              echo "Timed out waiting for release to be ready after ${max_attempts} attempts ($(( max_attempts * 10 ))s)."
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+      - name: Promote release to production
+        env:
+          REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
+          REPLIT_DEPLOYMENT_ID: ${{ secrets.REPLIT_DEPLOYMENT_ID }}
+          RELEASE_ID: ${{ steps.create_release.outputs.release_id }}
+        run: |
+          echo "Promoting release ${RELEASE_ID} to production..."
+          response=$(curl --silent --show-error --fail \
+            --request POST \
+            --url "https://api.replit.com/v1/deployments/${REPLIT_DEPLOYMENT_ID}/promote-release" \
+            --header "Authorization: Bearer ${REPLIT_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "{\"releaseId\": \"${RELEASE_ID}\"}")
+
+          echo "Response: $response"
+          echo "Release ${RELEASE_ID} promoted to production for commit ${{ github.sha }}."
+
+      - name: Verify deployment is live
+        env:
+          REPLIT_TOKEN: ${{ secrets.REPLIT_TOKEN }}
+          REPLIT_DEPLOYMENT_ID: ${{ secrets.REPLIT_DEPLOYMENT_ID }}
+          RELEASE_ID: ${{ steps.create_release.outputs.release_id }}
+        run: |
+          echo "Verifying deployment status..."
+          max_attempts=18
+          attempt=0
+
+          while [ $attempt -lt $max_attempts ]; do
+            attempt=$((attempt + 1))
+            echo "Verification attempt $attempt/$max_attempts..."
+
+            deploy_response=$(curl --silent --show-error --fail \
+              --request GET \
+              --url "https://api.replit.com/v1/deployments/${REPLIT_DEPLOYMENT_ID}" \
+              --header "Authorization: Bearer ${REPLIT_TOKEN}")
+
+            current_release=$(echo "$deploy_response" | jq -r '.currentReleaseId // empty')
+            echo "Current promoted release: $current_release"
+
+            if [ "$current_release" = "$RELEASE_ID" ]; then
+              echo "Deployment verified: commit ${{ github.sha }} is now live."
+              exit 0
+            fi
+
+            if [ $attempt -eq $max_attempts ]; then
+              echo "Deployment verification timed out. The release may still be propagating."
+              exit 1
+            fi
+
+            sleep 10
+          done
